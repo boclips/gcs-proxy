@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+cwd="$(cd "$(dirname "$0")" && pwd)"
+
+fly --target ci \
+    set-pipeline \
+    --pipeline gcs-proxy \
+    --config "$cwd/pipeline.yaml"
