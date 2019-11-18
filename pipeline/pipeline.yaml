@@ -1,17 +1,37 @@
 ---
 jobs:
 - name: build-gcs-proxy
+  serial: true
   plan:
   - in_parallel:
     - {get: source, resource: gcs-proxy, trigger: true}
     - get: release-manifests
     - get: infrastructure
-  - put: version
-    params:
-      bump: minor
+    - put: version
+      params:
+        bump: minor
+  - task: build-image
+    privileged: true
+    config:
+      platform: linux
+      image_resource:
+        type: registry-image
+        source:
+          repository: vito/oci-build-task
+          tag: "0.1.0"
+      inputs:
+      - name: source
+      outputs:
+      - name: image
+      run:
+        path: build
+      caches:
+      - path: cache
+      params:
+        CONTEXT: source
   - put: image
     params:
-      build: source
+      image: image/image.tar
       additional_tags: version/version
   - in_parallel:
     - do:
@@ -68,7 +88,7 @@ resources:
     private_key: ((versions.repo-key))
 
 - name: image
-  type: docker-image
+  type: registry-image
   icon: docker
   source:
     repository: eu.gcr.io/boclips-prod/boclips/gcs-proxy
