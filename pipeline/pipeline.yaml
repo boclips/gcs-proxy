@@ -1,0 +1,84 @@
+---
+jobs:
+- name: build-gcs-proxy
+  plan:
+  - in_parallel:
+    - {get: source, resource: gcs-proxy, trigger: true}
+    - get: release-manifests
+    - get: infrastructure
+  - put: version
+    params:
+      bump: minor
+  - put: image
+    params:
+      build: source
+      additional_tags: version/version
+  - in_parallel:
+    - do:
+      - task: generate-manifests
+        file: infrastructure/pipelines/boclips/tasks/generate-manifests.yaml
+        vars:
+          deploy-manifest: source/deploy.yaml
+      - put: release-manifests
+        params:
+          repository: release-manifests-modified
+          rebase: true
+    - put: gcs-proxy
+      params:
+        repository: source
+        tag: version/version
+        tag_prefix: v
+        only_tag: true
+
+resources:
+
+- name: gcs-proxy
+  type: git
+  icon: github-circle
+  source:
+    branch: master
+    uri: git@github.com:boclips/gcs-proxy.git
+    private_key: ((gcs-proxy.repo-key))
+
+- name: release-manifests
+  type: git
+  icon: github-circle
+  source:
+    uri: git@github.com:boclips/release-manifests-direct-deploy.git
+    branch: master
+    private_key: ((release-manifests-direct-deploy.repo-key))
+
+- name: infrastructure
+  type: git
+  icon: github-circle
+  source:
+    branch: master
+    private_key: ((infrastructure.repo-key))
+    uri: git@github.com:boclips/infrastructure.git
+
+- name: version
+  type: semver
+  icon: github-circle
+  source:
+    initial_version: "0.1.0"
+    driver: git
+    uri: git@github.com:boclips/versions.git
+    branch: master
+    file: gcs-proxy
+    private_key: ((versions.repo-key))
+
+- name: image
+  type: docker-image
+  icon: docker
+  source:
+    repository: eu.gcr.io/boclips-prod/boclips/gcs-proxy
+    username: _json_key
+    password: ((image-writer.google-storage-key))
+
+resource_types:
+
+- name: file-url
+  type: registry-image
+  source:
+    repository: pivotalservices/concourse-curl-resource
+    tag: latest
