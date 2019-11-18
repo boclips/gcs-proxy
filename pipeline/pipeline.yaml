@@ -1,10 +1,10 @@
 ---
 jobs:
-- name: build-gcs-proxy
+- name: build
   serial: true
   plan:
   - in_parallel:
-    - {get: source, resource: gcs-proxy, trigger: true}
+    - {get: source, trigger: true}
     - get: release-manifests
     - get: infrastructure
     - put: version
@@ -43,7 +43,7 @@ jobs:
         params:
           repository: release-manifests-modified
           rebase: true
-    - put: gcs-proxy
+    - put: source
       params:
         repository: source
         tag: version/version
@@ -52,7 +52,7 @@ jobs:
 
 resources:
 
-- name: gcs-proxy
+- name: source
   type: git
   icon: github-circle
   source:
