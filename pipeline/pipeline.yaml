@@ -36,7 +36,7 @@ jobs:
   - in_parallel:
     - do:
       - task: generate-manifests
-        file: infrastructure/pipelines/boclips/tasks/generate-manifests.yaml
+        file: infrastructure/pipelines/tasks/generate-manifests.yaml
         vars:
           deploy-manifest: source/deploy.yaml
       - put: release-manifests
