@@ -6,11 +6,11 @@ resources:
 commonLabels:
   app: gcs-proxy
 commonAnnotations:
-  boclips-version: "17"
+  boclips-version: "18"
 images:
 - name: app
   newName: eu.gcr.io/boclips-prod/boclips/gcs-proxy
-  newTag: "17"
+  newTag: "18"
 patches:
 - path: spread-across-zones.yaml
   target:
