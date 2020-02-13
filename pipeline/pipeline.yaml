@@ -34,31 +34,32 @@ jobs:
   - in_parallel:
     - task: kustomize-commit-release-manifests
       file: infrastructure/pipelines/tasks/kustomize-build-commit.yaml
-    - task: build-image
-      privileged: true
-      config:
-        platform: linux
-        image_resource:
-          type: registry-image
-          source:
-            repository: vito/oci-build-task
-            tag: "0.1.0"
-        inputs:
-        - name: source
-        outputs:
-        - name: image
-        run:
-          path: build
-        caches:
-        - path: cache
+    - do:
+      - task: build-image
+        privileged: true
+        config:
+          platform: linux
+          image_resource:
+            type: registry-image
+            source:
+              repository: vito/oci-build-task
+              tag: "0.1.0"
+          inputs:
+          - name: source
+          outputs:
+          - name: image
+          run:
+            path: build
+          caches:
+          - path: cache
+          params:
+            CONTEXT: source
+      - put: image
         params:
-          CONTEXT: source
-    - put: image
-      params:
-        image: image/image.tar
-        additional_tags: version/version
+          image: image/image.tar
+          additional_tags: version/version
   - in_parallel:
-    - put: source
+    - put: source-put
       params:
         repository: source
         tag: version/version
