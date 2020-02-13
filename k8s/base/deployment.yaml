@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gcs-proxy
+  annotations:
+    sidecar.jaegertracing.io/inject: jaeger
+spec:
+  template:
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+      - name: gcs-proxy
+        image: app:0
+        env:
+        - name: SENTRY_RELEASE
+          value: gcs-proxy-$(VERSION)
+        ports:
+        - name: http
+          containerPort: 80
+        envFrom:
+        - secretRef:
+            name: gcs-proxy

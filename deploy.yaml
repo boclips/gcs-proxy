@@ -1,8 +1,0 @@
----
-app: gcs-proxy
-port: 80
-scale: Tiny
-environments:
-  staging:
-    replicas: 1
-    urls: []
