@@ -1,54 +1,73 @@
 ---
 jobs:
-- name: build
-  serial: true
+
+- name: bump-version
+  serial_groups: [build]
   plan:
   - in_parallel:
-    - {get: source, trigger: true}
+    - get: source
+      trigger: true
+    - get: infrastructure
+  - task: bump-version
+    file: infrastructure/pipelines/tasks/bump-version-and-commit.yaml
+    params:
+      private_key: ((gcs-proxy.repo-key))
+  - put: push-bumped-version
+    resource: source-put
+    params:
+      repository: source-modified
+      rebase: true
+
+- name: build
+  serial_groups: [build]
+  disable_manual_trigger: true
+  plan:
+  - in_parallel:
     - get: release-manifests
     - get: infrastructure
-    - put: version
-      params:
-        bump: minor
-  - task: build-image
-    privileged: true
-    config:
-      platform: linux
-      image_resource:
-        type: registry-image
-        source:
-          repository: vito/oci-build-task
-          tag: "0.1.0"
-      inputs:
-      - name: source
-      outputs:
-      - name: image
-      run:
-        path: build
-      caches:
-      - path: cache
-      params:
-        CONTEXT: source
-  - put: image
-    params:
-      image: image/image.tar
-      additional_tags: version/version
+    - get: source
+      resource: source-put
+      passed: [bump-version]
+      trigger: true
+  - task: parse-app-and-version
+    file: infrastructure/pipelines/tasks/parse-app-and-version.yaml
   - in_parallel:
-    - do:
-      - task: generate-manifests
-        file: infrastructure/pipelines/tasks/generate-manifests.yaml
-        vars:
-          deploy-manifest: source/deploy.yaml
-      - put: release-manifests
+    - task: kustomize-commit-release-manifests
+      file: infrastructure/pipelines/tasks/kustomize-build-commit.yaml
+    - task: build-image
+      privileged: true
+      config:
+        platform: linux
+        image_resource:
+          type: registry-image
+          source:
+            repository: vito/oci-build-task
+            tag: "0.1.0"
+        inputs:
+        - name: source
+        outputs:
+        - name: image
+        run:
+          path: build
+        caches:
+        - path: cache
         params:
-          repository: release-manifests-modified
-          rebase: true
+          CONTEXT: source
+    - put: image
+      params:
+        image: image/image.tar
+        additional_tags: version/version
+  - in_parallel:
     - put: source
       params:
         repository: source
         tag: version/version
         tag_prefix: v
         only_tag: true
+    - put: release-manifests
+      params:
+        repository: release-manifests-modified
+        rebase: true
 
 resources:
 
@@ -56,9 +75,15 @@ resources:
   type: git
   icon: github-circle
   source:
+    &source
     branch: master
     uri: git@github.com:boclips/gcs-proxy.git
     private_key: ((gcs-proxy.repo-key))
+
+- name: source-put
+  type: git
+  icon: github-circle
+  source: *source
 
 - name: release-manifests
   type: git
@@ -76,17 +101,6 @@ resources:
     private_key: ((infrastructure.repo-key))
     uri: git@github.com:boclips/infrastructure.git
 
-- name: version
-  type: semver
-  icon: github-circle
-  source:
-    initial_version: "0.1.0"
-    driver: git
-    uri: git@github.com:boclips/versions.git
-    branch: master
-    file: gcs-proxy
-    private_key: ((versions.repo-key))
-
 - name: image
   type: registry-image
   icon: docker
@@ -94,11 +108,3 @@ resources:
     repository: eu.gcr.io/boclips-prod/boclips/gcs-proxy
     username: _json_key
     password: ((image-writer.google-storage-key))
-
-resource_types:
-
-- name: file-url
-  type: registry-image
-  source:
-    repository: pivotalservices/concourse-curl-resource
-    tag: latest
